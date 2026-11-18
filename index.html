@@ -1,11 +1,344 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Mi primera página</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Mi primer juego</title>
+<style>
+  :root {
+    --sky-top: #8ec9f0;
+    --sky-bottom: #d6f0ff;
+    --ground: #5ec45e;
+    --ground-dark: #46a046;
+    --panel: #ffffff;
+    --text: #2b2b40;
+    --accent: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: linear-gradient(180deg, #cfe8ff, #f0f9ff);
+    font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 16px;
+    width: 100%;
+    max-width: 640px;
+  }
+  h1 {
+    margin: 0;
+    font-size: 1.8rem;
+    background: linear-gradient(90deg, #ff6b6b, #ffa94d, #4dabf7);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-align: center;
+  }
+  .instructions {
+    margin: 0 0 4px 0;
+    font-size: 0.95rem;
+    color: #555;
+    text-align: center;
+  }
+  .board {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 2 / 1;
+    background: var(--panel);
+    border-radius: 16px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  .footer-note {
+    font-size: 0.8rem;
+    color: #888;
+  }
+</style>
 </head>
 <body>
-  <h1>Mi primera página</h1>
-  <p>Esta es una página de práctica muy sencilla, hecha para aprender a usar HTML, Git y GitHub.</p>
+  <div class="wrap">
+    <h1>Mi primer juego</h1>
+    <p class="instructions">Toca la pantalla o presiona espacio para saltar</p>
+    <div class="board">
+      <canvas id="game" width="600" height="300"></canvas>
+    </div>
+    <p class="footer-note">Esquiva los obstáculos y consigue la mayor puntuación posible 🚀</p>
+  </div>
+
+<script>
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+
+  const W = canvas.width;
+  const H = canvas.height;
+  const GROUND_Y = H - 50;
+
+  const player = {
+    x: 70,
+    y: GROUND_Y,
+    width: 34,
+    height: 44,
+    vy: 0,
+    onGround: true
+  };
+
+  const GRAVITY = 0.75;
+  const JUMP_FORCE = -12.5;
+
+  let obstacles = [];
+  let speed = 5;
+  let score = 0;
+  let frame = 0;
+  let nextObstacleIn = 70;
+  let gameOver = false;
+  let started = false;
+
+  function resetGame() {
+    player.y = GROUND_Y;
+    player.vy = 0;
+    player.onGround = true;
+    obstacles = [];
+    speed = 5;
+    score = 0;
+    frame = 0;
+    nextObstacleIn = 70;
+    gameOver = false;
+    started = true;
+  }
+
+  function jump() {
+    if (gameOver) {
+      resetGame();
+      return;
+    }
+    if (!started) {
+      started = true;
+    }
+    if (player.onGround) {
+      player.vy = JUMP_FORCE;
+      player.onGround = false;
+    }
+  }
+
+  function spawnObstacle() {
+    const colors = ['#ff6b6b', '#845ef7', '#20c997', '#ff922b'];
+    const h = 30 + Math.random() * 30;
+    obstacles.push({
+      x: W + 10,
+      y: GROUND_Y - h + 40,
+      width: 18 + Math.random() * 14,
+      height: h,
+      color: colors[Math.floor(Math.random() * colors.length)]
+    });
+  }
+
+  function rectsCollide(a, b) {
+    return a.x < b.x + b.width &&
+           a.x + a.width > b.x &&
+           a.y < b.y + b.height &&
+           a.y + a.height > b.y;
+  }
+
+  function drawBackground() {
+    const sky = ctx.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, '#8ec9f0');
+    sky.addColorStop(1, '#eaf7ff');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.beginPath();
+    ctx.arc(60, 50, 22, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(150, 70, 16, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffd43b';
+    ctx.beginPath();
+    ctx.arc(W - 60, 45, 24, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#46a046';
+    ctx.fillRect(0, GROUND_Y + 40, W, H - (GROUND_Y + 40));
+    ctx.fillStyle = '#5ec45e';
+    ctx.fillRect(0, GROUND_Y + 36, W, 10);
+
+    ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+    ctx.lineWidth = 2;
+    const stripeOffset = (frame * speed) % 40;
+    for (let x = -stripeOffset; x < W; x += 40) {
+      ctx.beginPath();
+      ctx.moveTo(x, GROUND_Y + 40);
+      ctx.lineTo(x - 10, H);
+      ctx.stroke();
+    }
+  }
+
+  function drawPlayer() {
+    const legSwing = player.onGround ? Math.sin(frame * 0.4) * 10 : 0;
+    const px = player.x;
+    const py = player.y;
+
+    ctx.strokeStyle = '#2b2b40';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+
+    ctx.beginPath();
+    ctx.moveTo(px + 17, py + 30);
+    ctx.lineTo(px + 17 - legSwing, py + 44);
+    ctx.moveTo(px + 17, py + 30);
+    ctx.lineTo(px + 17 + legSwing, py + 44);
+    ctx.stroke();
+
+    ctx.fillStyle = '#ff922b';
+    ctx.beginPath();
+    ctx.moveTo(px + 17, py);
+    ctx.lineTo(px + 34, py + 30);
+    ctx.lineTo(px, py + 30);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = '#ffd8a8';
+    ctx.beginPath();
+    ctx.arc(px + 17, py - 10, 12, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#2b2b40';
+    ctx.beginPath();
+    ctx.arc(px + 21, py - 12, 1.8, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawObstacles() {
+    obstacles.forEach(o => {
+      ctx.fillStyle = o.color;
+      ctx.beginPath();
+      ctx.moveTo(o.x, o.y + o.height);
+      ctx.lineTo(o.x + o.width / 2, o.y);
+      ctx.lineTo(o.x + o.width, o.y + o.height);
+      ctx.closePath();
+      ctx.fill();
+    });
+  }
+
+  function drawScore() {
+    ctx.fillStyle = '#2b2b40';
+    ctx.font = 'bold 20px Trebuchet MS, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Puntos: ' + score, 16, 28);
+  }
+
+  function drawStartMessage() {
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 24px Trebuchet MS, sans-serif';
+    ctx.fillText('¡Listo para saltar!', W / 2, H / 2 - 10);
+    ctx.font = '16px Trebuchet MS, sans-serif';
+    ctx.fillText('Toca o presiona espacio para empezar', W / 2, H / 2 + 20);
+  }
+
+  function drawGameOver() {
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 30px Trebuchet MS, sans-serif';
+    ctx.fillText('Game Over', W / 2, H / 2 - 20);
+    ctx.font = 'bold 18px Trebuchet MS, sans-serif';
+    ctx.fillText('Puntuación: ' + score, W / 2, H / 2 + 10);
+    ctx.font = '15px Trebuchet MS, sans-serif';
+    ctx.fillText('Toca o presiona espacio para reintentar', W / 2, H / 2 + 38);
+  }
+
+  function update() {
+    frame++;
+
+    player.vy += GRAVITY;
+    player.y += player.vy;
+    if (player.y >= GROUND_Y) {
+      player.y = GROUND_Y;
+      player.vy = 0;
+      player.onGround = true;
+    }
+
+    nextObstacleIn--;
+    if (nextObstacleIn <= 0) {
+      spawnObstacle();
+      const minGap = 45 + speed * 3;
+      nextObstacleIn = minGap + Math.random() * 50;
+    }
+
+    obstacles.forEach(o => { o.x -= speed; });
+    obstacles = obstacles.filter(o => o.x + o.width > -5);
+
+    const playerBox = {
+      x: player.x,
+      y: player.y - 22,
+      width: player.width,
+      height: player.height
+    };
+
+    for (const o of obstacles) {
+      if (rectsCollide(playerBox, o)) {
+        gameOver = true;
+      }
+    }
+
+    if (!gameOver) {
+      score++;
+      speed = 5 + Math.floor(score / 300) * 0.8;
+    }
+  }
+
+  function loop() {
+    drawBackground();
+    drawObstacles();
+    drawPlayer();
+    drawScore();
+
+    if (!started) {
+      drawStartMessage();
+    } else if (gameOver) {
+      drawGameOver();
+    } else {
+      update();
+    }
+
+    requestAnimationFrame(loop);
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') {
+      e.preventDefault();
+      jump();
+    }
+  });
+  canvas.addEventListener('mousedown', jump);
+  canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    jump();
+  }, { passive: false });
+
+  requestAnimationFrame(loop);
+</script>
 </body>
 </html>
