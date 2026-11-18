@@ -108,6 +108,17 @@
   let nextObstacleIn = 70;
   let gameOver = false;
   let started = false;
+  let eatEffects = [];
+
+  const flies = [];
+  for (let i = 0; i < 5; i++) {
+    flies.push({
+      x: Math.random() * W,
+      y: 35 + Math.random() * 90,
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.3 + Math.random() * 0.4
+    });
+  }
 
   function resetGame() {
     player.y = GROUND_Y;
@@ -120,6 +131,7 @@
     nextObstacleIn = 70;
     gameOver = false;
     started = true;
+    eatEffects = [];
   }
 
   function jump() {
@@ -133,6 +145,7 @@
     if (player.onGround) {
       player.vy = JUMP_FORCE;
       player.onGround = false;
+      eatEffects.push({ x: player.x + 30, y: player.y - 12, t: 0 });
     }
   }
 
@@ -191,39 +204,135 @@
     }
   }
 
-  function drawPlayer() {
+  function drawFrog() {
     const legSwing = player.onGround ? Math.sin(frame * 0.4) * 10 : 0;
     const px = player.x;
     const py = player.y;
 
-    ctx.strokeStyle = '#2b2b40';
+    ctx.strokeStyle = '#2b8a3e';
     ctx.lineWidth = 4;
     ctx.lineCap = 'round';
-
     ctx.beginPath();
-    ctx.moveTo(px + 17, py + 30);
+    ctx.moveTo(px + 17, py + 26);
     ctx.lineTo(px + 17 - legSwing, py + 44);
-    ctx.moveTo(px + 17, py + 30);
+    ctx.moveTo(px + 17, py + 26);
     ctx.lineTo(px + 17 + legSwing, py + 44);
     ctx.stroke();
 
-    ctx.fillStyle = '#ff922b';
+    ctx.fillStyle = '#2b8a3e';
     ctx.beginPath();
-    ctx.moveTo(px + 17, py);
-    ctx.lineTo(px + 34, py + 30);
-    ctx.lineTo(px, py + 30);
-    ctx.closePath();
+    ctx.ellipse(px + 17 - legSwing, py + 45, 5, 2.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(px + 17 + legSwing, py + 45, 5, 2.5, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = '#ffd8a8';
+    ctx.fillStyle = '#51cf66';
     ctx.beginPath();
-    ctx.arc(px + 17, py - 10, 12, 0, Math.PI * 2);
+    ctx.ellipse(px + 17, py + 14, 18, 15, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#d8f5a2';
+    ctx.beginPath();
+    ctx.ellipse(px + 17, py + 20, 11, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#51cf66';
+    ctx.beginPath();
+    ctx.arc(px + 9, py - 2, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(px + 25, py - 2, 7, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(px + 9, py - 2, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(px + 25, py - 2, 4, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.fillStyle = '#2b2b40';
     ctx.beginPath();
-    ctx.arc(px + 21, py - 12, 1.8, 0, Math.PI * 2);
+    ctx.arc(px + 10, py - 2, 1.8, 0, Math.PI * 2);
     ctx.fill();
+    ctx.beginPath();
+    ctx.arc(px + 26, py - 2, 1.8, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = '#1b5e2a';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(px + 17, py + 10, 7, 0.15 * Math.PI, 0.85 * Math.PI);
+    ctx.stroke();
+  }
+
+  function drawPlants() {
+    const spacing = 90;
+    const offset = (frame * speed) % spacing;
+    for (let x = W + spacing - offset; x > -spacing; x -= spacing) {
+      drawPlant(x, GROUND_Y + 40);
+    }
+  }
+
+  function drawPlant(x, baseY) {
+    ctx.strokeStyle = '#2f9e44';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x, baseY);
+    ctx.lineTo(x, baseY - 18);
+    ctx.stroke();
+
+    ctx.fillStyle = '#51cf66';
+    ctx.beginPath();
+    ctx.ellipse(x - 6, baseY - 14, 7, 4, Math.PI / 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(x + 6, baseY - 20, 7, 4, -Math.PI / 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffa8c5';
+    ctx.beginPath();
+    ctx.arc(x, baseY - 24, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawFly(x, y, scale) {
+    ctx.fillStyle = '#2b2b40';
+    ctx.beginPath();
+    ctx.ellipse(x, y, 3 * scale, 2.2 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x - 2 * scale, y - 2 * scale);
+    ctx.lineTo(x - 6 * scale, y - 5 * scale);
+    ctx.moveTo(x + 2 * scale, y - 2 * scale);
+    ctx.lineTo(x + 6 * scale, y - 5 * scale);
+    ctx.stroke();
+  }
+
+  function drawFlies() {
+    flies.forEach(f => {
+      f.phase += 0.08;
+      f.x -= f.speed;
+      if (f.x < -10) f.x = W + 10;
+      drawFly(f.x, f.y + Math.sin(f.phase) * 6, 1);
+    });
+  }
+
+  function drawEatEffects() {
+    eatEffects.forEach(e => {
+      e.t++;
+      const progress = e.t / 16;
+      const scale = Math.max(0, 1 - progress);
+      ctx.save();
+      ctx.globalAlpha = scale;
+      drawFly(e.x, e.y - progress * 10, scale);
+      ctx.restore();
+    });
+    eatEffects = eatEffects.filter(e => e.t < 16);
   }
 
   function drawObstacles() {
@@ -311,8 +420,11 @@
 
   function loop() {
     drawBackground();
+    drawPlants();
+    drawFlies();
     drawObstacles();
-    drawPlayer();
+    drawFrog();
+    drawEatEffects();
     drawScore();
 
     if (!started) {
